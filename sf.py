@@ -122,7 +122,7 @@ def main() -> None:
     if args.max_threads:
         sfConfig['_maxthreads'] = args.max_threads
 
-    if args.debug:
+    if args.debug or True:
         sfConfig['_debug'] = True
     else:
         sfConfig['_debug'] = False
@@ -583,7 +583,12 @@ def start_web_server(sfWebUiConfig: dict, sfConfig: dict, loggingQueue=None) -> 
     # Disable auto-reloading of content
     cherrypy.engine.autoreload.unsubscribe()
 
-    cherrypy.quickstart(SpiderFootWebUi(sfWebUiConfig, sfConfig, loggingQueue), script_name=web_root, config=conf)
+    try:
+        cherrypy.quickstart(SpiderFootWebUi(sfWebUiConfig, sfConfig, loggingQueue), script_name=web_root, config=conf)
+    except Exception:
+        import traceback
+        traceback.print_exc()
+        sys.exit(-1)
 
 
 def handle_abort(signal, frame) -> None:

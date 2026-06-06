@@ -95,7 +95,9 @@ class SpiderFootWebUi:
         cherrypy.config.update({
             'error_page.401': self.error_page_401,
             'error_page.404': self.error_page_404,
-            'request.error_response': self.error_page
+            'request.error_response': self.error_page,
+            'request.show_tracebacks': True,
+            'environment': 'development'
         })
 
         csp = (
@@ -107,6 +109,7 @@ class SpiderFootWebUi:
             .connect_src("'self'", "data:")
             .frame_src("'self'", 'data:')
             .img_src("'self'", "data:")
+            .frame_ancestors("'self'", "http://localhost:8501", "http://127.0.0.1:8501", "http://192.168.68.110:8501", "http://192.168.68.109:8501", "http://192.168.68.112:8501")
         )
 
         secure_headers = secure.Secure(
@@ -114,19 +117,31 @@ class SpiderFootWebUi:
             cache=secure.CacheControl().must_revalidate(),
             csp=csp,
             referrer=secure.ReferrerPolicy().no_referrer(),
+            xfo=None,
         )
+
+        try:
+            # secure < 0.3.0
+            headers_dict = secure_headers.headers
+        except AttributeError:
+            # secure >= 0.3.0
+            try:
+                headers_dict = secure_headers.headers()
+            except TypeError:
+                headers_dict = dict(secure_headers.get_headers())
 
         cherrypy.config.update({
             "tools.response_headers.on": True,
-            "tools.response_headers.headers": secure_headers.framework.cherrypy()
+            "tools.response_headers.headers": list(headers_dict.items())
         })
 
     def error_page(self: 'SpiderFootWebUi') -> None:
         """Error page."""
         cherrypy.response.status = 500
 
-        if self.config.get('_debug'):
-            cherrypy.response.body = _cperror.get_error_page(status=500, traceback=_cperror.format_exc())
+        if self.config.get('_debug') or cherrypy.config.get('request.show_tracebacks'):
+            err = _cperror.get_error_page(status=500, traceback=_cperror.format_exc())
+            cherrypy.response.body = err.encode('utf-8') if isinstance(err, str) else err
         else:
             cherrypy.response.body = b"<html><body>Error</body></html>"
 
@@ -156,7 +171,7 @@ class SpiderFootWebUi:
         Returns:
             str: HTTP response template
         """
-        templ = Template(filename='spiderfoot/templates/error.tmpl', lookup=self.lookup)
+        templ = Template(filename='templates/error.tmpl', lookup=self.lookup)
         return templ.render(message='Not Found', docroot=self.docroot, status=status, version=__version__)
 
     def jsonify_error(self: 'SpiderFootWebUi', status: str, message: str) -> dict:
@@ -187,7 +202,7 @@ class SpiderFootWebUi:
         Returns:
             None
         """
-        templ = Template(filename='spiderfoot/templates/error.tmpl', lookup=self.lookup)
+        templ = Template(filename='templates/error.tmpl', lookup=self.lookup)
         return templ.render(message=message, docroot=self.docroot, version=__version__)
 
     def cleanUserInput(self: 'SpiderFootWebUi', inputList: list) -> list:
@@ -903,7 +918,7 @@ class SpiderFootWebUi:
                 self.log.info("Waiting for the scan to initialize...")
                 time.sleep(1)
 
-        templ = Template(filename='spiderfoot/templates/scanlist.tmpl', lookup=self.lookup)
+        templ = Template(filename='templates/scanlist.tmpl', lookup=self.lookup)
         return templ.render(rerunscans=True, docroot=self.docroot, pageid="SCANLIST", version=__version__)
 
     @cherrypy.expose
@@ -915,7 +930,7 @@ class SpiderFootWebUi:
         """
         dbh = SpiderFootDb(self.config)
         types = dbh.eventTypes()
-        templ = Template(filename='spiderfoot/templates/newscan.tmpl', lookup=self.lookup)
+        templ = Template(filename='templates/newscan.tmpl', lookup=self.lookup)
         return templ.render(pageid='NEWSCAN', types=types, docroot=self.docroot,
                             modules=self.config['__modules__'], scanname="",
                             selectedmods="", scantarget="", version=__version__)
@@ -952,7 +967,7 @@ class SpiderFootWebUi:
 
         modlist = scanconfig['_modulesenabled'].split(',')
 
-        templ = Template(filename='spiderfoot/templates/newscan.tmpl', lookup=self.lookup)
+        templ = Template(filename='templates/newscan.tmpl', lookup=self.lookup)
         return templ.render(pageid='NEWSCAN', types=types, docroot=self.docroot,
                             modules=self.config['__modules__'], selectedmods=modlist,
                             scanname=str(scanname),
@@ -965,7 +980,10 @@ class SpiderFootWebUi:
         Returns:
             str: Scan list page HTML
         """
-        templ = Template(filename='spiderfoot/templates/scanlist.tmpl', lookup=self.lookup)
+        import os
+        template_path = 'templates/scanlist.tmpl'
+        self.log.info(f"Attempting to render template: {template_path} (CWD: {os.getcwd()})")
+        templ = Template(filename=template_path, lookup=self.lookup)
         return templ.render(pageid='SCANLIST', docroot=self.docroot, version=__version__)
 
     @cherrypy.expose
@@ -983,7 +1001,7 @@ class SpiderFootWebUi:
         if res is None:
             return self.error("Scan ID not found.")
 
-        templ = Template(filename='spiderfoot/templates/scaninfo.tmpl', lookup=self.lookup, input_encoding='utf-8')
+        templ = Template(filename='templates/scaninfo.tmpl', lookup=self.lookup, input_encoding='utf-8')
         return templ.render(id=id, name=html.escape(res[0]), status=res[5], docroot=self.docroot, version=__version__,
                             pageid="SCANLIST")
 
@@ -997,7 +1015,7 @@ class SpiderFootWebUi:
         Returns:
             str: scan options page HTML
         """
-        templ = Template(filename='spiderfoot/templates/opts.tmpl', lookup=self.lookup)
+        templ = Template(filename='templates/opts.tmpl', lookup=self.lookup)
         self.token = random.SystemRandom().randint(0, 99999999)
         return templ.render(opts=self.config, pageid='SETTINGS', token=self.token, version=__version__,
                             updated=updated, docroot=self.docroot)
