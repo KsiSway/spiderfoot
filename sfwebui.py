@@ -9,6 +9,7 @@
 # Copyright:    (c) Steve Micallef 2012
 # License:      MIT
 # -----------------------------------------------------------------
+import os
 import csv
 import html
 import json
@@ -46,7 +47,11 @@ mp.set_start_method("spawn", force=True)
 class SpiderFootWebUi:
     """SpiderFoot web interface."""
 
-    lookup = TemplateLookup(directories=[''])
+    lookup = TemplateLookup(directories=[
+        os.path.join(os.path.dirname(__file__), 'spiderfoot'),
+        os.path.join(os.path.dirname(__file__)),
+        ''
+    ])
     defaultConfig = dict()
     config = dict()
     token = None
