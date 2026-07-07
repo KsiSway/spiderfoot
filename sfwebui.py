@@ -120,14 +120,12 @@ class SpiderFootWebUi:
         )
 
         try:
-            # secure < 0.3.0
-            headers_dict = secure_headers.headers
-        except AttributeError:
-            # secure >= 0.3.0
-            try:
+            if callable(secure_headers.headers):
                 headers_dict = secure_headers.headers()
-            except TypeError:
-                headers_dict = dict(secure_headers.get_headers())
+            else:
+                headers_dict = secure_headers.headers
+        except AttributeError:
+            headers_dict = dict(secure_headers.get_headers())
 
         cherrypy.config.update({
             "tools.response_headers.on": True,
