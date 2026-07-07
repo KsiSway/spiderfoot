@@ -96,8 +96,7 @@ class SpiderFootWebUi:
             'error_page.401': self.error_page_401,
             'error_page.404': self.error_page_404,
             'request.error_response': self.error_page,
-            'request.show_tracebacks': True,
-            'environment': 'development'
+            'request.show_tracebacks': True
         })
 
         csp = (
