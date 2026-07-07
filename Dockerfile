@@ -73,6 +73,8 @@ RUN apk --update --no-cache add python3 musl openssl libxslt tinyxml libxml2 jpe
     && chown spiderfoot:spiderfoot $SPIDERFOOT_CACHE
 
 COPY . .
+RUN ln -s /home/spiderfoot/spiderfoot/templates /home/spiderfoot/templates && \
+    ln -s /home/spiderfoot/spiderfoot/static /home/spiderfoot/static
 COPY --from=build /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
